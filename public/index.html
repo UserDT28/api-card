@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card API Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --bg-card-hover: rgba(255, 255, 255, 0.06);
+            --bg-glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f0f0f5;
+            --text-secondary: #8a8a9a;
+            --text-dim: #55556a;
+            --accent: #6c5ce7;
+            --accent-glow: rgba(108, 92, 231, 0.3);
+            --success: #00d68f;
+            --warning: #ffaa00;
+            --danger: #ff4757;
+            --gradient-1: linear-gradient(135deg, #6c5ce7, #a855f7);
+            --gradient-2: linear-gradient(135deg, #00d68f, #0fbcf9);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: 
+                radial-gradient(ellipse at 20% 50%, rgba(108, 92, 231, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(168, 85, 247, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(0, 214, 143, 0.04) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 40px 0;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 300;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+            padding: 8px 20px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 214, 143, 0.4); }
+            50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(0, 214, 143, 0); }
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(20px);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(108, 92, 231, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .stat-card .label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .stat-card .value.accent { color: var(--accent); }
+        .stat-card .value.success { color: var(--success); }
+        .stat-card .value.warning { color: var(--warning); }
+        .stat-card .value.danger { color: var(--danger); }
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Card Panel */
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 28px;
+            backdrop-filter: blur(20px);
+        }
+
+        .panel-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-title .icon {
+            width: 32px; height: 32px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .panel-title .icon.purple { background: rgba(108, 92, 231, 0.15); }
+        .panel-title .icon.green { background: rgba(0, 214, 143, 0.15); }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-group select option {
+            background: #1a1a2e;
+            color: var(--text-primary);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 8px;
+        }
+
+        .btn-primary {
+            background: var(--gradient-1);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Result Box */
+        .result-box {
+            margin-top: 16px;
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .result-box.show { display: block; }
+        .result-box.success { background: rgba(0, 214, 143, 0.1); border: 1px solid rgba(0, 214, 143, 0.2); color: var(--success); }
+        .result-box.error { background: rgba(255, 71, 87, 0.1); border: 1px solid rgba(255, 71, 87, 0.2); color: var(--danger); }
+        .result-box.info { background: rgba(108, 92, 231, 0.1); border: 1px solid rgba(108, 92, 231, 0.2); color: #b8b0ff; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Transaction Table */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        tbody td {
+            padding: 14px 16px;
+            font-size: 0.85rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            white-space: nowrap;
+        }
+
+        tbody tr {
+            transition: background 0.2s ease;
+        }
+
+        tbody tr:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge.success { background: rgba(0, 214, 143, 0.12); color: var(--success); }
+        .badge.warning { background: rgba(255, 170, 0, 0.12); color: var(--warning); }
+        .badge.danger { background: rgba(255, 71, 87, 0.12); color: var(--danger); }
+        .badge.pending { background: rgba(108, 92, 231, 0.12); color: var(--accent); }
+
+        .telco-badge {
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-dim);
+        }
+
+        .empty-state .emoji {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        /* Refresh bar */
+        .refresh-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .refresh-btn {
+            padding: 8px 16px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .refresh-btn:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .toggle {
+            width: 36px; height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            position: relative;
+            cursor: pointer;
+            border: none;
+            transition: background 0.3s ease;
+        }
+
+        .toggle.active { background: var(--accent); }
+
+        .toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px;
+            width: 16px; height: 16px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+        }
+
+        .toggle.active::after { transform: translateX(16px); }
+
+        .money { font-variant-numeric: tabular-nums; }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 6px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>💳 Card API Dashboard</h1>
+            <p>Hệ thống trung gian nhận thẻ cào & callback</p>
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                <span id="statusText">Đang kết nối...</span>
+            </div>
+        </header>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="label">Tổng giao dịch</div>
+                <div class="value accent" id="statTotal">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Thành công</div>
+                <div class="value success" id="statSuccess">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Sai mệnh giá</div>
+                <div class="value warning" id="statWrong">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Thất bại</div>
+                <div class="value danger" id="statFailed">0</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-grid">
+            <!-- Left: Send Card Form -->
+            <div>
+                <div class="panel">
+                    <div class="panel-title">
+                        <span class="icon purple">📤</span>
+                        Gửi thẻ cào
+                    </div>
+
+                    <form id="cardForm">
+                        <div class="form-group">
+                            <label>Nhà mạng</label>
+                            <select id="telco" required>
+                                <option value="">-- Chọn nhà mạng --</option>
+                                <option value="VIETTEL">Viettel</option>
+                                <option value="MOBIFONE">Mobifone</option>
+                                <option value="VINAPHONE">Vinaphone</option>
+                                <option value="VIETNAMOBILE">Vietnamobile</option>
+                                <option value="GATE">Gate</option>
+                                <option value="ZING">Zing</option>
+                                <option value="GARENA">Garena</option>
+                                <option value="VCOIN">Vcoin</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Mã thẻ (Code)</label>
+                            <input type="text" id="code" placeholder="Nhập mã thẻ" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Serial</label>
+                            <input type="text" id="serial" placeholder="Nhập số serial" required>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Mệnh giá</label>
+                                <select id="amount" required>
+                                    <option value="10000">10,000đ</option>
+                                    <option value="20000">20,000đ</option>
+                                    <option value="30000">30,000đ</option>
+                                    <option value="50000">50,000đ</option>
+                                    <option value="100000">100,000đ</option>
+                                    <option value="200000">200,000đ</option>
+                                    <option value="300000">300,000đ</option>
+                                    <option value="500000">500,000đ</option>
+                                    <option value="1000000">1,000,000đ</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Request ID</label>
+                                <input type="text" id="requestId" placeholder="Tự động" readonly>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            Gửi thẻ cào
+                        </button>
+                    </form>
+
+                    <div class="result-box" id="resultBox"></div>
+                </div>
+
+                <!-- Check Status -->
+                <div class="panel" style="margin-top: 20px;">
+                    <div class="panel-title">
+                        <span class="icon green">🔍</span>
+                        Kiểm tra trạng thái
+                    </div>
+
+                    <form id="checkForm">
+                        <div class="form-group">
+                            <label>Request ID</label>
+                            <input type="text" id="checkRequestId" placeholder="Nhập request_id cần kiểm tra" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Kiểm tra</button>
+                    </form>
+
+                    <div class="result-box" id="checkResultBox"></div>
+                </div>
+            </div>
+
+            <!-- Right: Transaction Logs -->
+            <div class="panel">
+                <div class="refresh-bar">
+                    <div class="panel-title" style="margin-bottom: 0;">
+                        <span class="icon green">📋</span>
+                        Lịch sử Callback
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div class="auto-refresh">
+                            <button class="toggle active" id="autoRefreshToggle" onclick="toggleAutoRefresh()"></button>
+                            <span>Tự động</span>
+                        </div>
+                        <button class="refresh-btn" onclick="loadLogs()">⟳ Refresh</button>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Thời gian</th>
+                                <th>Nhà mạng</th>
+                                <th>Serial</th>
+                                <th>Khai báo</th>
+                                <th>Thực tế</th>
+                                <th>Nhận</th>
+                                <th>Trạng thái</th>
+                                <th>Chữ ký</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTableBody">
+                        </tbody>
+                    </table>
+
+                    <div class="empty-state" id="emptyState">
+                        <div class="emoji">📭</div>
+                        <p>Chưa có callback nào</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Generate Request ID
+        function generateRequestId() {
+            return 'REQ_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        }
+
+        // Format money
+        function formatMoney(n) {
+            return Number(n || 0).toLocaleString('vi-VN') + 'đ';
+        }
+
+        // Format time
+        function formatTime(iso) {
+            const d = new Date(iso);
+            return d.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit' });
+        }
+
+        // Status badge
+        function statusBadge(status) {
+            const map = {
+                1: ['success', '✅ OK'],
+                2: ['warning', '⚠️ Sai giá'],
+                3: ['danger', '❌ Lỗi'],
+                4: ['pending', '🔧 Bảo trì'],
+                99: ['pending', '⏳ Chờ'],
+                100: ['danger', '❌ Fail'],
+            };
+            const [cls, text] = map[status] || ['pending', '❓ ' + status];
+            return `<span class="badge ${cls}">${text}</span>`;
+        }
+
+        // Set initial request ID
+        document.getElementById('requestId').value = generateRequestId();
+
+        // ========== SEND CARD ==========
+        document.getElementById('cardForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const result = document.getElementById('resultBox');
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>Đang gửi...';
+
+            const payload = {
+                telco: document.getElementById('telco').value,
+                code: document.getElementById('code').value,
+                serial: document.getElementById('serial').value,
+                amount: document.getElementById('amount').value,
+                request_id: document.getElementById('requestId').value,
+            };
+
+            try {
+                const res = await fetch('/api/charging', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json();
+
+                result.className = 'result-box show ' + (data.status == 1 || data.status == 99 ? 'success' : 'error');
+                result.innerHTML = `
+                    <strong>Request ID:</strong> ${payload.request_id}<br>
+                    <strong>Status:</strong> ${data.status} - ${data.message || 'N/A'}<br>
+                    ${data.trans_id ? '<strong>Trans ID:</strong> ' + data.trans_id : ''}
+                `;
+
+                // New request ID for next submission
+                document.getElementById('requestId').value = generateRequestId();
+            } catch (err) {
+                result.className = 'result-box show error';
+                result.textContent = 'Lỗi: ' + err.message;
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Gửi thẻ cào';
+        });
+
+        // ========== CHECK STATUS ==========
+        document.getElementById('checkForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const result = document.getElementById('checkResultBox');
+            const requestId = document.getElementById('checkRequestId').value;
+
+            try {
+                const res = await fetch('/api/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ request_id: requestId }),
+                });
+                const data = await res.json();
+
+                result.className = 'result-box show info';
+                result.innerHTML = `
+                    <strong>Status:</strong> ${data.status} - ${data.message || 'N/A'}<br>
+                    ${data.value ? '<strong>Giá trị:</strong> ' + formatMoney(data.value) + '<br>' : ''}
+                    ${data.amount ? '<strong>Nhận:</strong> ' + formatMoney(data.amount) + '<br>' : ''}
+                    ${data.telco ? '<strong>Nhà mạng:</strong> ' + data.telco : ''}
+                `;
+            } catch (err) {
+                result.className = 'result-box show error';
+                result.textContent = 'Lỗi: ' + err.message;
+            }
+        });
+
+        // ========== LOAD CALLBACK LOGS ==========
+        async function loadLogs() {
+            try {
+                const res = await fetch('/api/callback');
+                const data = await res.json();
+
+                const tbody = document.getElementById('logTableBody');
+                const empty = document.getElementById('emptyState');
+
+                if (!data.logs || data.logs.length === 0) {
+                    tbody.innerHTML = '';
+                    empty.style.display = 'block';
+                    updateStats([]);
+                    return;
+                }
+
+                empty.style.display = 'none';
+                tbody.innerHTML = data.logs.map(log => `
+                    <tr>
+                        <td>${formatTime(log.timestamp)}</td>
+                        <td><span class="telco-badge">${log.telco || 'N/A'}</span></td>
+                        <td style="font-family: monospace; font-size: 0.8rem;">${log.serial || 'N/A'}</td>
+                        <td class="money">${formatMoney(log.declared_value)}</td>
+                        <td class="money">${formatMoney(log.value)}</td>
+                        <td class="money" style="font-weight: 600;">${formatMoney(log.amount)}</td>
+                        <td>${statusBadge(log.status)}</td>
+                        <td>${log.sign_valid ? '<span class="badge success">✓</span>' : '<span class="badge danger">✗</span>'}</td>
+                    </tr>
+                `).join('');
+
+                updateStats(data.logs);
+            } catch (err) {
+                console.error('Load logs error:', err);
+            }
+        }
+
+        function updateStats(logs) {
+            document.getElementById('statTotal').textContent = logs.length;
+            document.getElementById('statSuccess').textContent = logs.filter(l => l.status === 1).length;
+            document.getElementById('statWrong').textContent = logs.filter(l => l.status === 2).length;
+            document.getElementById('statFailed').textContent = logs.filter(l => l.status === 3 || l.status === 100).length;
+        }
+
+        // ========== HEALTH CHECK ==========
+        async function checkHealth() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                document.getElementById('statusText').textContent = 
+                    data.configured ? 'Hoạt động • API đã cấu hình' : 'Hoạt động • Chưa cấu hình API';
+            } catch {
+                document.getElementById('statusText').textContent = 'Mất kết nối';
+            }
+        }
+
+        // ========== AUTO REFRESH ==========
+        let autoRefreshInterval = null;
+        let autoRefreshEnabled = true;
+
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = !autoRefreshEnabled;
+            const toggle = document.getElementById('autoRefreshToggle');
+            toggle.classList.toggle('active', autoRefreshEnabled);
+            
+            if (autoRefreshEnabled) {
+                autoRefreshInterval = setInterval(loadLogs, 10000);
+            } else {
+                clearInterval(autoRefreshInterval);
+            }
+        }
+
+        // Init
+        checkHealth();
+        loadLogs();
+        autoRefreshInterval = setInterval(loadLogs, 10000);
+    </script>
+</body>
+</html>
