@@ -1,0 +1,6 @@
+{
+    "name": "vercel-card-callback",
+    "version": "1.0.0",
+    "description": "Nhận callback thẻ cào - Bot poll lấy kết quả",
+    "private": true
+}
