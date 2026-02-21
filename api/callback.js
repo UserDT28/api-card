@@ -1,6 +1,5 @@
 const { setCorsHeaders, parseBody } = require('../lib/utils');
 
-// Global storage (persist giữa các request trong cùng instance)
 if (!global.__cardCallbacks) {
     global.__cardCallbacks = [];
 }
@@ -10,10 +9,36 @@ module.exports = async function handler(req, res) {
     setCorsHeaders(res);
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    // ========== Lấy payload từ GET query hoặc POST body ==========
     const payload = req.method === 'GET' ? req.query : parseBody(req);
+    const action = payload.action || ''; 
 
-    // ========== GET: Dashboard lấy logs (nếu không có request_id) ==========
+    // ========== 1. PENDING (Bot gọi để lấy thẻ) ==========
+    if (req.method === 'GET' && action === 'pending') {
+        const pending = global.__cardCallbacks.filter(c => c.processed === false);
+        return res.status(200).json({ success: true, count: pending.length, callbacks: pending });
+    }
+
+    // ========== 2. ACK (Bot gọi để đánh dấu đã cộng tiền) ==========
+    if (req.method === 'POST' && action === 'ack') {
+        let ids = [];
+        if (payload.ids && Array.isArray(payload.ids)) ids = payload.ids;
+        else if (payload.id) ids = [payload.id];
+        else return res.status(400).json({ error: 'Thiếu id hoặc ids' });
+
+        let processed = 0;
+        const now = new Date().toISOString();
+        for (const cbId of ids) {
+            const cb = global.__cardCallbacks.find(c => c.id === cbId && !c.processed);
+            if (cb) {
+                cb.processed = true;
+                cb.processed_at = now;
+                processed++;
+            }
+        }
+        return res.status(200).json({ success: true, processed });
+    }
+
+    // ========== 3. DASHBOARD (Lấy lịch sử xem Web) ==========
     if (req.method === 'GET' && !payload.request_id && !payload.status) {
         return res.status(200).json({
             success: true,
@@ -23,12 +48,13 @@ module.exports = async function handler(req, res) {
         });
     }
 
+    // ========== 4. NHẬN CALLBACK TỪ GACHTHEFAST ==========
     if (req.method !== 'POST' && req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        console.log(`[CALLBACK] Received (${req.method}):`, JSON.stringify(payload));
+        console.log(`[CALLBACK LOG] Received (${req.method}):`, JSON.stringify(payload));
 
         const entry = {
             id: `cb_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
