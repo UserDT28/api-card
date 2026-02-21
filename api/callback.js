@@ -1,8 +1,19 @@
 const { setCorsHeaders, parseBody } = require('../lib/utils');
 
+/**
+ * POST /api/callback
+ * → Nhận callback từ hệ thống card khi thẻ xử lý xong
+ *   Chỉ lưu lại data, Bot sẽ poll lấy sau
+ * 
+ * GET /api/callback
+ * → Lấy tất cả callback logs (cho dashboard)
+ */
+
+// Global storage (persist giữa các request trong cùng instance)
 if (!global.__cardCallbacks) {
     global.__cardCallbacks = [];
 }
+
 const MAX_CALLBACKS = 500;
 
 module.exports = async function handler(req, res) {
@@ -10,15 +21,19 @@ module.exports = async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     const payload = req.method === 'GET' ? req.query : parseBody(req);
-    const action = payload.action || ''; 
+    const action = payload.action || ''; // '?action=pending' hoặc '?action=ack'
 
-    // ========== 1. PENDING (Bot gọi để lấy thẻ) ==========
+    // ========== 1. API: PENDING (Bot gọi để lấy thẻ chưa xử lý) ==========
     if (req.method === 'GET' && action === 'pending') {
         const pending = global.__cardCallbacks.filter(c => c.processed === false);
-        return res.status(200).json({ success: true, count: pending.length, callbacks: pending });
+        return res.status(200).json({
+            success: true,
+            count: pending.length,
+            callbacks: pending,
+        });
     }
 
-    // ========== 2. ACK (Bot gọi để đánh dấu đã cộng tiền) ==========
+    // ========== 2. API: ACK (Bot gọi để đánh dấu đã cộng tiền) ==========
     if (req.method === 'POST' && action === 'ack') {
         let ids = [];
         if (payload.ids && Array.isArray(payload.ids)) ids = payload.ids;
@@ -38,7 +53,7 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({ success: true, processed });
     }
 
-    // ========== 3. DASHBOARD (Lấy lịch sử xem Web) ==========
+    // ========== 3. API: DASHBOARD (Trang chủ lấy logs xem lịch sử) ==========
     if (req.method === 'GET' && !payload.request_id && !payload.status) {
         return res.status(200).json({
             success: true,
@@ -48,7 +63,7 @@ module.exports = async function handler(req, res) {
         });
     }
 
-    // ========== 4. NHẬN CALLBACK TỪ GACHTHEFAST ==========
+    // ========== 4. API: NHẬN CALLBACK TỪ GACHTHEFAST ==========
     if (req.method !== 'POST' && req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
@@ -56,11 +71,20 @@ module.exports = async function handler(req, res) {
     try {
         console.log(`[CALLBACK LOG] Received (${req.method}):`, JSON.stringify(payload));
 
+        // CHẶN REQUEST ẢO/RÁC TỪ CÁC TOOL SCAN VÀ BOT PING TỰ ĐỘNG
+        if (!payload.request_id && !payload.callback_sign) {
+            console.log(`[CALLBACK LOG] Đã bỏ qua request rác không có chữ ký.`);
+            return res.status(200).json({ success: true, message: 'Ignored invalid request' });
+        }
+
+        // Lưu toàn bộ data callback
         const entry = {
             id: `cb_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
             timestamp: new Date().toISOString(),
             processed: false,
             processed_at: null,
+
+            // Lưu toàn bộ data từ hệ thống card
             status: Number(payload.status) || 0,
             message: payload.message || '',
             request_id: payload.request_id || '',
@@ -72,11 +96,14 @@ module.exports = async function handler(req, res) {
             value: Number(payload.value) || 0,
             amount: Number(payload.amount) || 0,
             callback_sign: payload.callback_sign || '',
+
+            // Lưu raw để debug
             raw: payload,
         };
 
         global.__cardCallbacks.push(entry);
 
+        // Dọn dẹp entries cũ đã processed
         if (global.__cardCallbacks.length > MAX_CALLBACKS) {
             const oldProcessed = global.__cardCallbacks.filter(c => c.processed);
             if (oldProcessed.length > 100) {
@@ -88,8 +115,12 @@ module.exports = async function handler(req, res) {
                 });
             }
         }
+
+        console.log(`[CALLBACK LOG] Saved: ${entry.id} | Pending: ${global.__cardCallbacks.filter(c => !c.processed).length}`);
+
         return res.status(200).json({ success: true });
     } catch (err) {
+        console.error('[CALLBACK ERROR]', err.message);
         return res.status(500).json({ error: err.message });
     }
 };
