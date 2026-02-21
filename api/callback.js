@@ -1,28 +1,20 @@
 const { setCorsHeaders, parseBody } = require('../lib/utils');
 
-/**
- * POST /api/callback
- * → Nhận callback từ hệ thống card khi thẻ xử lý xong
- *   Chỉ lưu lại data, Bot sẽ poll lấy sau
- * 
- * GET /api/callback
- * → Lấy tất cả callback logs (cho dashboard)
- */
-
 // Global storage (persist giữa các request trong cùng instance)
 if (!global.__cardCallbacks) {
     global.__cardCallbacks = [];
 }
-
 const MAX_CALLBACKS = 500;
 
 module.exports = async function handler(req, res) {
     setCorsHeaders(res);
-
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    // ========== GET: Dashboard lấy logs ==========
-    if (req.method === 'GET') {
+    // ========== Lấy payload từ GET query hoặc POST body ==========
+    const payload = req.method === 'GET' ? req.query : parseBody(req);
+
+    // ========== GET: Dashboard lấy logs (nếu không có request_id) ==========
+    if (req.method === 'GET' && !payload.request_id && !payload.status) {
         return res.status(200).json({
             success: true,
             total: global.__cardCallbacks.length,
@@ -31,43 +23,34 @@ module.exports = async function handler(req, res) {
         });
     }
 
-    // ========== POST: Nhận callback từ hệ thống card ==========
-    if (req.method !== 'POST') {
+    if (req.method !== 'POST' && req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        const body = parseBody(req);
+        console.log(`[CALLBACK] Received (${req.method}):`, JSON.stringify(payload));
 
-        console.log('[CALLBACK] Received:', JSON.stringify(body));
-
-        // Lưu toàn bộ data callback
         const entry = {
             id: `cb_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
             timestamp: new Date().toISOString(),
             processed: false,
             processed_at: null,
-
-            // Lưu toàn bộ data từ hệ thống card
-            status: Number(body.status) || 0,
-            message: body.message || '',
-            request_id: body.request_id || '',
-            trans_id: body.trans_id || '',
-            telco: body.telco || '',
-            code: body.code || '',
-            serial: body.serial || '',
-            declared_value: Number(body.declared_value) || 0,
-            value: Number(body.value) || 0,
-            amount: Number(body.amount) || 0,
-            callback_sign: body.callback_sign || '',
-
-            // Lưu raw để debug
-            raw: body,
+            status: Number(payload.status) || 0,
+            message: payload.message || '',
+            request_id: payload.request_id || '',
+            trans_id: payload.trans_id || '',
+            telco: payload.telco || '',
+            code: payload.code || '',
+            serial: payload.serial || '',
+            declared_value: Number(payload.declared_value) || 0,
+            value: Number(payload.value) || 0,
+            amount: Number(payload.amount) || 0,
+            callback_sign: payload.callback_sign || '',
+            raw: payload,
         };
 
         global.__cardCallbacks.push(entry);
 
-        // Dọn dẹp entries cũ đã processed
         if (global.__cardCallbacks.length > MAX_CALLBACKS) {
             const oldProcessed = global.__cardCallbacks.filter(c => c.processed);
             if (oldProcessed.length > 100) {
@@ -79,12 +62,8 @@ module.exports = async function handler(req, res) {
                 });
             }
         }
-
-        console.log(`[CALLBACK] Saved: ${entry.id} | Pending: ${global.__cardCallbacks.filter(c => !c.processed).length}`);
-
         return res.status(200).json({ success: true });
     } catch (err) {
-        console.error('[CALLBACK ERROR]', err.message);
         return res.status(500).json({ error: err.message });
     }
 };
